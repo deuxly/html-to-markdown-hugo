@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HTML to Hugo Markdown Converter - Deuxly Tools</title>
+    <script src="[https://unpkg.com/turndown/dist/turndown.js](https://unpkg.com/turndown/dist/turndown.js)"></script>
+    <style>
+        :root {
+            --bg-color: #1a1a1a;
+            --text-color: #e0e0e0;
+            --accent: #3b82f6;
+            --secondary-bg: #2d2d2d;
+            --border: #404040;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            box-sizing: border-box;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        h1 { margin: 0; font-size: 1.5rem; }
+        .badge { background: var(--accent); padding: 2px 8px; border-radius: 4px; font-size: 0.8rem; }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 15px;
+            align-items: center;
+        }
+
+        .editor-container {
+            display: flex;
+            gap: 20px;
+            flex: 1;
+            min-height: 0; /* Penting untuk flex nested */
+        }
+
+        .pane {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        label { margin-bottom: 5px; font-weight: bold; font-size: 0.9rem; color: #888; }
+
+        textarea {
+            flex: 1;
+            background-color: var(--secondary-bg);
+            color: #fff;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 15px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 14px;
+            resize: none;
+            outline: none;
+            line-height: 1.5;
+        }
+
+        textarea:focus { border-color: var(--accent); }
+
+        button {
+            background-color: var(--accent);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: opacity 0.2s;
+        }
+
+        button:hover { opacity: 0.9; }
+        button.secondary { background-color: var(--border); }
+
+        .checkbox-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            user-select: none;
+        }
+        
+        /* Toast Notification */
+        #toast {
+            visibility: hidden;
+            min-width: 250px;
+            background-color: #333;
+            color: #fff;
+            text-align: center;
+            border-radius: 4px;
+            padding: 16px;
+            position: fixed;
+            z-index: 1;
+            bottom: 30px;
+            right: 30px;
+            border-left: 5px solid var(--accent);
+        }
+
+        #toast.show { visibility: visible; animation: fadein 0.5s, fadeout 0.5s 2.5s; }
+
+        @keyframes fadein { from {bottom: 0; opacity: 0;} to {bottom: 30px; opacity: 1;} }
+        @keyframes fadeout { from {bottom: 30px; opacity: 1;} to {bottom: 0; opacity: 0;} }
+
+        @media (max-width: 768px) {
+            .editor-container { flex-direction: column; }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div>
+            <h1>HTML to Hugo <span class="badge">Converter</span></h1>
+            <small style="color: #888;">Tools santai by Deuxly</small>
+        </div>
+        <button onclick="copyResult()" class="secondary">Copy Markdown</button>
+    </header>
+
+    <div class="controls">
+        <label class="checkbox-wrapper">
+            <input type="checkbox" id="addFrontMatter" checked>
+            Tambah Front Matter (YAML)
+        </label>
+        <button onclick="convert()">Konversi Sekarang</button>
+        <button onclick="clearAll()" style="background: transparent; border: 1px solid #ff4444; color: #ff4444;">Reset</button>
+    </div>
+
+    <div class="editor-container">
+        <div class="pane">
+            <label for="input">Input HTML</label>
+            <textarea id="input" placeholder="Paste kode HTML kamu di sini...&#10;Contoh: <h1>Halo Dunia</h1><p>Ini paragraf.</p>"></textarea>
+        </div>
+        <div class="pane">
+            <label for="output">Output Markdown (Hugo)</label>
+            <textarea id="output" readonly placeholder="Hasil konversi akan muncul di sini..."></textarea>
+        </div>
+    </div>
+
+    <div id="toast">Markdown berhasil disalin!</div>
+
+    <script>
+        // Inisialisasi Turndown Service
+        const turndownService = new TurndownService({
+            headingStyle: 'atx', // Pakai # untuk heading
+            hr: '---',
+            bulletListMarker: '-',
+            codeBlockStyle: 'fenced' // Pakai ``` untuk blok kode
+        });
+
+        // Kustomisasi agar iframe (Youtube dll) tidak hilang total (opsional, disimpan sebagai HTML)
+        turndownService.keep(['iframe', 'script', 'style']);
+
+        function convert() {
+            const htmlInput = document.getElementById('input').value;
+            const useFrontMatter = document.getElementById('addFrontMatter').checked;
+            
+            if (!htmlInput.trim()) {
+                alert("Isi dulu kolom HTML-nya, kawan!");
+                return;
+            }
+
+            // 1. Proses Konversi
+            let markdown = turndownService.turndown(htmlInput);
+
+            // 2. Tambah Front Matter jika dicentang
+            if (useFrontMatter) {
+                const dateNow = new Date().toISOString();
+                
+                // Coba cari judul dari input HTML (cari tag h1 pertama)
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(htmlInput, 'text/html');
+                const h1 = doc.querySelector('h1');
+                const title = h1 ? h1.innerText : "Judul Artikel";
+
+                const frontMatter = `---
+title: "${title}"
+date: ${dateNow}
+draft: false
+slug: ""
+categories:
+  - "Uncategorized"
+---
+
+`;
+                // Gabungkan, dan hapus H1 pertama di markdown (biar nggak dobel sama title)
+                markdown = frontMatter + markdown.replace(/^# .+\n/, ''); 
+            }
+
+            document.getElementById('output').value = markdown;
+        }
+
+        function copyResult() {
+            const output = document.getElementById('output');
+            if (!output.value) return;
+            
+            output.select();
+            document.execCommand('copy'); // Fallback copy
+            
+            // Tampilkan Toast
+            const toast = document.getElementById("toast");
+            toast.className = "show";
+            setTimeout(function(){ toast.className = toast.className.replace("show", ""); }, 3000);
+        }
+
+        function clearAll() {
+            document.getElementById('input').value = '';
+            document.getElementById('output').value = '';
+        }
+    </script>
+</body>
+</html>
