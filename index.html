@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HTML to Hugo Markdown Converter - Deuxly Tools</title>
-    <script src="[https://unpkg.com/turndown/dist/turndown.js](https://unpkg.com/turndown/dist/turndown.js)"></script>
+    <title>HTML to Hugo Markdown - Fixed Version</title>
+    <script src="https://cdn.jsdelivr.net/npm/turndown@7.1.2/dist/turndown.js"></script>
     <style>
         :root {
             --bg-color: #1a1a1a;
@@ -49,7 +49,7 @@
             display: flex;
             gap: 20px;
             flex: 1;
-            min-height: 0; /* Penting untuk flex nested */
+            min-height: 0;
         }
 
         .pane {
@@ -98,29 +98,10 @@
             user-select: none;
         }
         
-        /* Toast Notification */
-        #toast {
-            visibility: hidden;
-            min-width: 250px;
-            background-color: #333;
-            color: #fff;
-            text-align: center;
-            border-radius: 4px;
-            padding: 16px;
-            position: fixed;
-            z-index: 1;
-            bottom: 30px;
-            right: 30px;
-            border-left: 5px solid var(--accent);
-        }
-
-        #toast.show { visibility: visible; animation: fadein 0.5s, fadeout 0.5s 2.5s; }
-
-        @keyframes fadein { from {bottom: 0; opacity: 0;} to {bottom: 30px; opacity: 1;} }
-        @keyframes fadeout { from {bottom: 30px; opacity: 1;} to {bottom: 0; opacity: 0;} }
-
-        @media (max-width: 768px) {
-            .editor-container { flex-direction: column; }
+        #status-bar {
+            margin-top: 10px;
+            font-size: 0.9rem;
+            color: #aaa;
         }
     </style>
 </head>
@@ -128,8 +109,7 @@
 
     <header>
         <div>
-            <h1>HTML to Hugo <span class="badge">Converter</span></h1>
-            <small style="color: #888;">Tools santai by Deuxly</small>
+            <h1>HTML to Hugo <span class="badge">V2</span></h1>
         </div>
         <button onclick="copyResult()" class="secondary">Copy Markdown</button>
     </header>
@@ -146,29 +126,44 @@
     <div class="editor-container">
         <div class="pane">
             <label for="input">Input HTML</label>
-            <textarea id="input" placeholder="Paste kode HTML kamu di sini...&#10;Contoh: <h1>Halo Dunia</h1><p>Ini paragraf.</p>"></textarea>
+            <textarea id="input" placeholder="Paste kode HTML kamu di sini..."></textarea>
         </div>
         <div class="pane">
             <label for="output">Output Markdown (Hugo)</label>
-            <textarea id="output" readonly placeholder="Hasil konversi akan muncul di sini..."></textarea>
+            <textarea id="output" readonly placeholder="Hasil akan muncul di sini..."></textarea>
         </div>
     </div>
-
-    <div id="toast">Markdown berhasil disalin!</div>
+    
+    <div id="status-bar">Siap digunakan.</div>
 
     <script>
-        // Inisialisasi Turndown Service
-        const turndownService = new TurndownService({
-            headingStyle: 'atx', // Pakai # untuk heading
-            hr: '---',
-            bulletListMarker: '-',
-            codeBlockStyle: 'fenced' // Pakai ``` untuk blok kode
-        });
+        let turndownService;
 
-        // Kustomisasi agar iframe (Youtube dll) tidak hilang total (opsional, disimpan sebagai HTML)
-        turndownService.keep(['iframe', 'script', 'style']);
+        // Cek apakah library berhasil dimuat saat halaman dibuka
+        window.onload = function() {
+            if (typeof TurndownService === 'undefined') {
+                document.getElementById('status-bar').innerHTML = "<span style='color:red'>⚠️ Error: Gagal memuat library. Pastikan kamu terhubung ke INTERNET agar alat ini bisa jalan!</span>";
+                alert("Waduh! Script pengubahnya gagal didownload. Tolong cek koneksi internet kamu lalu Refresh halaman ini ya.");
+            } else {
+                // Inisialisasi Service
+                turndownService = new TurndownService({
+                    headingStyle: 'atx',
+                    hr: '---',
+                    bulletListMarker: '-',
+                    codeBlockStyle: 'fenced'
+                });
+                turndownService.keep(['iframe', 'script', 'style']);
+                document.getElementById('status-bar').innerHTML = "<span style='color:#4caf50'>✅ Sistem Siap. Silakan paste HTML.</span>";
+            }
+        };
 
         function convert() {
+            // Cek lagi library
+            if (!turndownService) {
+                alert("Sistem belum siap. Cek koneksi internet & Refresh.");
+                return;
+            }
+
             const htmlInput = document.getElementById('input').value;
             const useFrontMatter = document.getElementById('addFrontMatter').checked;
             
@@ -177,52 +172,52 @@
                 return;
             }
 
-            // 1. Proses Konversi
-            let markdown = turndownService.turndown(htmlInput);
+            try {
+                // 1. Proses Konversi
+                let markdown = turndownService.turndown(htmlInput);
 
-            // 2. Tambah Front Matter jika dicentang
-            if (useFrontMatter) {
-                const dateNow = new Date().toISOString();
-                
-                // Coba cari judul dari input HTML (cari tag h1 pertama)
-                const parser = new DOMParser();
-                const doc = parser.parseFromString(htmlInput, 'text/html');
-                const h1 = doc.querySelector('h1');
-                const title = h1 ? h1.innerText : "Judul Artikel";
+                // 2. Tambah Front Matter
+                if (useFrontMatter) {
+                    const dateNow = new Date().toISOString();
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(htmlInput, 'text/html');
+                    // Cari H1, kalau ga ada pakai default
+                    const h1 = doc.querySelector('h1');
+                    const title = h1 ? h1.innerText.replace(/"/g, '\\"') : "Judul Artikel";
 
-                const frontMatter = `---
+                    const frontMatter = `---
 title: "${title}"
 date: ${dateNow}
 draft: false
 slug: ""
-categories:
-  - "Uncategorized"
+categories: ["Uncategorized"]
 ---
 
 `;
-                // Gabungkan, dan hapus H1 pertama di markdown (biar nggak dobel sama title)
-                markdown = frontMatter + markdown.replace(/^# .+\n/, ''); 
-            }
+                    // Hapus judul H1 di body markdown jika sudah masuk title
+                    markdown = frontMatter + markdown.replace(/^# .+\n/, ''); 
+                }
 
-            document.getElementById('output').value = markdown;
+                document.getElementById('output').value = markdown;
+                document.getElementById('status-bar').innerText = "✅ Konversi Berhasil!";
+            } catch (error) {
+                console.error(error);
+                alert("Ada error saat konversi: " + error.message);
+            }
         }
 
         function copyResult() {
             const output = document.getElementById('output');
             if (!output.value) return;
-            
             output.select();
-            document.execCommand('copy'); // Fallback copy
-            
-            // Tampilkan Toast
-            const toast = document.getElementById("toast");
-            toast.className = "show";
-            setTimeout(function(){ toast.className = toast.className.replace("show", ""); }, 3000);
+            document.execCommand('copy');
+            alert("Markdown berhasil dicopy!");
         }
 
         function clearAll() {
             document.getElementById('input').value = '';
             document.getElementById('output').value = '';
+            document.getElementById('status-bar').innerText = "Siap digunakan.";
         }
     </script>
 </body>
