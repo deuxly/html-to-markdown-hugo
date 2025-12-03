@@ -135,6 +135,8 @@
     </div>
     
     <div id="status-bar">Siap digunakan.</div>
+        <div id="status-bar">Tools by <a href="https://deuxly.id/">Deuxly</a></div>
+
 
     <script>
         let turndownService;
@@ -153,7 +155,7 @@
                     codeBlockStyle: 'fenced'
                 });
                 turndownService.keep(['iframe', 'script', 'style']);
-                document.getElementById('status-bar').innerHTML = "<span style='color:#4caf50'>✅ Sistem Siap. Silakan paste HTML.</span>"; "<br><span style='color:#4caf50'>✅ Tools by Deuxly.</span></br>
+                document.getElementById('status-bar').innerHTML = "<span style='color:#4caf50'>✅ Sistem Siap. Silakan paste HTML.</span>";
             }
         };
 
